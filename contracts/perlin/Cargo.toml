@@ -1,5 +1,5 @@
 [package]
-name = "tidebound"
+name = "perlin"
 version = "0.1.0"
 authors = ["[Tony Riemer] <[driemworks@idealabs.network]>"]
 edition = "2021"
@@ -14,8 +14,6 @@ sha3 = { version = "0.10.8", default-features = false }
 idl-contract-extension = { git = "https://github.com/ideal-lab5/contracts.git", branch = "tony/dev", default-features = false, features = ["ink-as-dependency"] }
 # noise = { version = "0.9", default-features = false }
 # etf-contract-utils = { git = "", default-features = false, features = ["ink-as-dependency"] }
-perlin = { path = "../perlin", default-features = false, features = ["ink-as-dependency"] }
-
 
 [dev-dependencies]
 ink_env = { version = "5", default-features = false }
@@ -32,7 +30,6 @@ std = [
     "scale-info/std",
     "sha3/std",
     "idl-contract-extension/std",
-    "perlin/std",
 ]
 ink-as-dependency = []
 e2e-tests = []

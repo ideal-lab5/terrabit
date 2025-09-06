@@ -51,7 +51,7 @@ export function Avatar(props) {
   
   return (
     <RigidBody {...props} type="fixed" colliders="cuboid" ref={ref}>
-      <mesh receiveShadow castShadow onPointerOut={onOut}>
+      <mesh receiveShadow castShadow>
         {[...Array(6)].map((_, index) => (
           <meshStandardMaterial attach={`material-${index}`} key={index} map={texture} color={hover === index ? "hotpink" : "white"} />
         ))}

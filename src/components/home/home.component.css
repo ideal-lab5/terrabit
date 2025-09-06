@@ -116,7 +116,8 @@ h2 {
   cursor: pointer;
   transition: background-color 0.2s ease-in;
   border-radius: 4px;
-  margin-top: 10px;
+  /* margin-top: 10px; */
+  margin: 0 auto;
 }
 
 .smash-button:hover {
@@ -126,7 +127,7 @@ h2 {
 
 .create-island label {
   margin-right: 10px;
-  font-size: 14px;
+  /* font-size: 14px; */
 }
 
 .create-island input {
@@ -136,6 +137,7 @@ h2 {
   color: #E0E0E0;
   margin-bottom: 20px;
   width: 100%;
+  font-size: 30px;
 }
 
 .island-list {

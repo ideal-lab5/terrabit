@@ -1,4 +1,4 @@
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { Sky, PointerLockControls, KeyboardControls, Text } from "@react-three/drei";
 import { Physics } from "@react-three/rapier";
 import { Ground } from "../Ground";
@@ -16,20 +16,55 @@ export const useCubeStore = create((set) => ({
     cubes: [],
     addCube: (id, x, y, z) => set((state) => {
         // get all cubes that don't belong to the player
-        const updatedCubes = state.cubes.filter((cube) => cube.id !== id);
+        const updatedCubes = state.cubes.filter((cube) => JSON.stringify(cube.id) !== JSON.stringify(id));
         // update player cube
         return { cubes: [...updatedCubes, { id, x, y, z }] };
     }),
 }));
 
 
+
 export const Players = () => {
     const cubes = useCubeStore((state) => state.cubes); // Get cubes from Zustand store
 
-    return cubes.map((cube, index) => (
-        <Avatar key={index} position={[cube.x, cube.y, cube.z]} />
-    ));
+    const [render, setRender] = useState([]);
+
+    useFrame(state => {
+        // console.log('jhkladfjhlkadsfjhlkadsfjhlk')
+        // console.log(cubes)
+        let newRender = []
+        cubes.forEach(({ id, x, y, z }) => {
+            console.log('pushing new render')
+            console.log(JSON.stringify(cubes))
+            newRender.push(<Avatar key={id} position={[x, y, z]} />)
+            // newRender.push({ id, x, y, z })
+            setRender(newRender)
+            // console.log('newRender')
+            // console.log(JSON.stringify(newRender))
+        })
+    })
+
+    // render.forEach(r => (
+        
+    // ));
+    // return cubes.map((cube, index) => (
+    //     <Avatar key={index} position={[cube.x, cube.y, cube.z]} />
+    // ));
+
+    // return render.map((cube, index) => (
+    //     <Avatar key={index} position={[cube.x, cube.y, cube.z]} />
+    // ));
+    return render;
 };
+
+// export const Players = () => {
+//     const cubes = useCubeStore((state) => state.cubes); // Get cubes from Zustand store
+
+    
+//     return cubes.map((cube, index) => (
+//         <Avatar key={index} position={[cube.x, cube.y, cube.z]} />
+//     ));
+// };
 
 
 export default function Game(props) {
@@ -59,7 +94,7 @@ export default function Game(props) {
                     let location = event.detail.data;
                     let decoded = new TextDecoder().decode(location);
                     let new_pos = JSON.parse(decoded);
-
+                    // peerPositions
                     // Update cube position in the Zustand store
                     addCube(playerLocalId, new_pos.x, new_pos.y, new_pos.z);
                 }

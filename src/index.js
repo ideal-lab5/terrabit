@@ -58,7 +58,7 @@ function Overlay() {
 
   const setupComms = async () => {
     // const relayAddr = process.env.REACT_APP_RELAY_MADDR;
-    const relayAddr = '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWLvFcqbGBVn3ReEN4zCo994SdFdJXd1RfWDmX1bp929ww';
+    const relayAddr = '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWAWRYEeSQKboHQ7nbwgK2JymWrsfoFAsxfxPM94wqZkaL';
     console.log(`attempting to connect to webrtc relay at ${relayAddr}`)
     const node = await Libp2p(relayAddr);
 

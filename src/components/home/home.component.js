@@ -24,6 +24,7 @@ const customStyles = {
         boxShadow: '0 0 20px rgba(0, 0, 0, 0.8)', // Strong shadow for depth
         textAlign: 'center', // Center text within the modal
         border: '2px solid #003366', // Border matching the nautical theme
+        fontSize: '50px',
     },
     overlay: {
         backgroundColor: 'rgba(0, 0, 0, 0.75)', // Dark overlay to focus on the modal
@@ -62,7 +63,7 @@ function Home(props) {
     const queryPlayersJs = async () => {
         let players = await queryPlayers(etf, signer, contract);
         if (players.Ok) {
-            const playersu8a = etf.createType('Bytes', players.Ok.data).toU8a().slice(4);
+            const playersu8a = etf.createType('Bytes', players.Ok.data).toU8a().slice(3);
             // assert(playersU8a % 32 === 0)
             let numPlayers = playersu8a.length / 32;
             console.log(playersu8a)
@@ -207,7 +208,7 @@ function Home(props) {
                                     style={customStyles}
                                 >
                                     <div className='create-island'>
-                                        <label htmlFor='name'>Name: </label>
+                                        <label htmlFor='name'>Name</label>
                                         <input
                                             id="name"
                                             type="text"

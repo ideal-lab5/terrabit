@@ -7,6 +7,8 @@ mod tidebound {
 
     use crate::IDNEnvironment;
 
+    use perlin::PerlinNoiseRef;
+    use ink::ToAccountId;
     use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
     use ink::env::hash::{
@@ -14,65 +16,20 @@ mod tidebound {
         Sha2x256,
     };
 
-    // use rs_merkle::{
-    //     algorithms::Sha256,
-    //     Hasher,
-    //     MerkleTree,
-    // };
+    /// any length data (should probably bound this though)
+    pub type OpaqueData = Vec<u8>;
 
-    // /// a dummy type to represent an asset
-    // pub type OpaqueAssetId = Vec<u8>;
-
-    // /// represents a swap between two participants
-    // #[derive(PartialEq, Debug, scale::Decode, scale::Encode)]
-    // #[cfg_attr(
-    //     feature = "std",
-    //     derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    // )]
-    // pub struct Swap {
-    //     asset_id_one: OpaqueAssetId,
-    //     asset_id_two: OpaqueAssetId,
-    //     /// the deadline when the swap must complete
-    //     deadline: BlockNumber,
-    // }
-
-    // #[derive(PartialEq, Debug, scale::Decode, scale::Encode)]
-    // #[cfg_attr(
-    //     feature = "std",
-    //     derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    // )]
-    // pub struct AxialHex<C> {
-    //     q: C,
-    //     r: C,
-    // }
-    
-    // #[derive(PartialEq, Debug, scale::Decode, scale::Encode)]
-    // #[cfg_attr(
-    //     feature = "std",
-    //     derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
-    // )]
-    // pub struct AxialHexGrid<C> {
-    //     hexes: Vec<AxialHex<C>>
-    // }
-
-    // impl<C> AxialHexGrid<C> {
-    //     // generate a `size` sized 
-    //     pub fn generate(size: u8) -> Self {
-
-    //         AxialHexGrid {
-    //             hexes: Vec::new()
-    //         }
-    //     }
-    // }
 
     #[derive(PartialEq, Debug, scale::Decode, scale::Encode)]
     #[cfg_attr(
         feature = "std",
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
-    pub struct Island {
-        pub name: [u8;32],
-        pub seed: [u8;32],
+    pub struct WorldConfig {
+        /// the world contract address
+        pub address: AccountId,
+        /// the world name
+        pub name: OpaqueData,
     }
 
     #[derive(PartialEq, Debug, scale::Decode, scale::Encode)]
@@ -81,77 +38,146 @@ mod tidebound {
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
     pub enum Error {
+        /// the player is already registered
         PlayerAlreadyRegistered,
     }
 
     #[ink(storage)]
     pub struct Tidebound {
-        // TODO
-        // hex_grid: Vec<u8>,
-        /// all registered islands
-        island_registry: Mapping<AccountId, Island>,
-        /// all players TODO: make bounded vec?
-        players: Vec<AccountId>,
+        /// registry of all players' worlds
+        registry: Mapping<AccountId, WorldConfig>,
+        /// The perlin noise contract code hash
+        perlin_noise_contract_code_hash: Hash,
     }
 
 
     impl Tidebound {
+
+        /// build a new "overworld" game contract
         #[ink(constructor, payable)]
-        pub fn new() -> Self {
+        pub fn new(perlin_noise_contract_code_hash: Hash) -> Self {
             Self {
-                island_registry: Mapping::new(),
-                players: Vec::new(),
+                registry: Mapping::new(),
+                perlin_noise_contract_code_hash,
+
             }
         }
 
-        #[ink(constructor, payable)]
-        pub fn default() -> Self {
-            Self::new()
-        }
+        // #[ink(constructor, payable)]
+        // pub fn default() -> Self {
+        //     Self::new()
+        // }
 
-        /// generates a random seed for a hex-island
+        /// register in the overworld and initialize a game world with a random seed
+        /// must be called in order for the game to be "playable"
+        ///
+        /// world seed is calculated as:
+        ///
+        ///     rand: [u8;32] = latest_round_randomness;
+        ///     seed: [u8; 32] = Sha256(accountId || name) XOR rand;
+        ///
         #[ink(message)]
-        pub fn create_island(
+        pub fn register(
             &mut self,
-            name: [u8;32],
+            name: Vec<u8>,
         ) -> Result<(), Error> {
             let caller = self.env().caller();
 
-            // reject calls from already registered players
-            if self.island_registry.contains(&caller) {
-                return Err(Error::PlayerAlreadyRegistered);
-            }
-
-            let mut seed: [u8;32] = self.env().extension().random();
-
-            let hash = self.env().hash_bytes::<Sha2x256>(&name);
-
-            hash.clone().iter().enumerate().for_each(|(i, bit)| {
-                seed[i] = seed[i] ^ bit;
-            });
-
-            let island = Island {
-                name: name,
-                seed: seed
-            };
-
-            self.island_registry.insert(caller, &island);
-            self.players.push(caller);
-
+            let mut acct_id_bytes: &[u8] = caller.as_ref();
+            let concat = [
+                acct_id_bytes.to_vec(), 
+                name.clone()
+            ].concat();
+            let mut seed: [u8;32] = self.get_seed();
+            let roll = self.roll(seed, &concat);
+            // TODO: idk, arbitarily picked 10
+            let scale = 10;
+            // deploy Perlin contract
+            let noise_contract = PerlinNoiseRef::new(
+                caller,
+                roll,
+                scale,
+            )
+                .endowment(0)
+                .code_hash(self.perlin_noise_contract_code_hash)
+                .salt_bytes(seed)
+                .instantiate();
+            let account_id = noise_contract.to_account_id();
+            // TODO: emit event
             Ok(())
         }
 
-        #[ink(message)]
-        pub fn get_island(&self, who: AccountId) -> Option<Island> {
-            self.island_registry.get(who)
+        /// roll the dice, get 32 bytes of fresh randomness
+        /// outputs: roll := round_randomness XOR sha256(concat)
+        ///
+        /// * `concat`: Any length input
+        ///
+        fn roll(&self, mut seed: [u8;32], concat: &[u8]) -> u32 {
+            let hash = self.env().hash_bytes::<Sha2x256>(&concat);
+            hash.clone().iter().enumerate().for_each(|(i, bit)| {
+                seed[i] = seed[i] ^ bit;
+            });
+            let mut result: u32 = 0;
+            for byte in hash {
+                result = result.wrapping_add(byte as u32);
+            }
+            result
+        }
+
+         // Fetch 32 bytes of randomness from the IDN and convert it to a 32-byte array
+         fn get_seed(&self) -> [u8; 32] {
+            self.env().extension().random() // Fetch randomness from IDN
         }
 
 
-        #[ink(message)]
-        pub fn get_players(&self) -> Vec<AccountId> {
-            self.players.clone()
-        }
+        // /// join the game (open to public)
+        // #[ink(message)]
+        // pub fn join(&mut self) -> Result<(), Error> {
+        //     let caller = self.env().caller();
 
+        //     let mut updatedPlayers = self.players.clone();
+        //     // TODO: enforce upper bound on number of players based on the size of the island
+        //     // max_players = (size^2 + 1)/(size^2 - 1)? or just make it freely configurable?
+        //     //  floor(sqrt(size)): 1-4 => 1, 5-8 => 2, 9-15 => 3, 16-24 => 4, 25-35 => 5, 36-48 => 6, ..., 100- 120 => 10
+        //     // floor((size^2 - 1)/(size^2 + 1)):  1 => 0, 2 => 0
+        //     if !updatedPlayers.contains(&caller) {
+        //         updatedPlayers.push(caller);
+        //         self.players = updatedPlayers;
+        //         return Ok(());
+        //     }
+
+        //     Err(Error::PlayerAlreadyRegistered)
+        // }
+
+        // /// a player takes their next turn
+        // /// 1. generates fresh randomness
+        // /// 2. uses that randomness to do something to the player state...
+        // #[ink(message)]
+        // pub fn move(
+        //     &mut self,
+        // ) -> Result<(), Error> {
+        //     let caller = self.env().caller();
+        //     // 1. check that it is the caller's turn
+        //     if let Some(next) = self.next_player {
+        //         if next == caller {
+        //             // roll = rand xor hash(caller)
+        //             let caller_bytes: &[u8] = caller.as_ref();
+        //             let rand = self.roll(&[caller_bytes.to_vec()].concat());
+
+        //             // then something happens here
+        //             // but this is where it gets difficult
+        //             // because the hex grid and noise function do not actually exist within this contract...
+        //             // so maybe I need to use circom? 
+        //             // somehow generate the noise offchain, encode it as a static [x,y,z] vec and initialize the contract with it
+        //             // 
+
+        //             return Ok(());
+        //         }
+        //         return Err(Error::WaitYourTurn);
+        //     }
+
+        //     Err(Error::NoPlayers)
+        // }
 
         // #[ink(message)]
         // pub fn destroy_island(&mut self) -> Result<(), Error> {
@@ -345,210 +371,5 @@ mod tidebound {
         // }
     }
 
-    /// Unit tests in Rust are normally defined within such a `#[cfg(test)]`
-    /// module and test functions are marked with a `#[test]` attribute.
-    /// The below code is technically just normal Rust code.
-    #[cfg(test)]
-    mod tests {
-        /// Imports all the definitions from the outer scope so we can use them here.
-        use super::*;
-
-        // /// We test if the default constructor does its job.
-        // #[ink::test]
-        // fn can_register_seed() {
-        //     let accounts = 
-        //         ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-        //     setup_ext_even_parity();
-        //     let mut transmutation = Transmutation::default();
-        //     assert_eq!(transmutation.swap_lookup(accounts.alice, accounts.bob), Err(Error::SwapDNE));
-        //     assert_eq!(transmutation.claimed_assets.len(), 0);
-        //     if let Err(_) = transmutation.random_seed([5;48]) {
-        //         panic!("{:?}", "The test should pass");
-        //     }
-
-        //     assert_eq!(transmutation.claimed_assets.len(), 1);
-        //     assert_eq!(
-        //         transmutation.island_registry.get(transmutation.claimed_assets[0].clone()).unwrap(),
-        //         accounts.alice
-        //     );
-        // }
-
-        
-        // #[ink::test]
-        // fn test_can_create_new_swap() {
-        //     let accounts = 
-        //         ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-        //     setup_ext_even_parity();
-        //     let mut transmutation = Transmutation::default();
-
-        //     let deadline = 1;
-            
-        //     if let Err(_) = transmutation.random_seed([5;48]) {
-        //         panic!("{:?}", "The test should pass");
-        //     }
-
-        //     let alice_asset = transmutation.registry_lookup(accounts.alice).unwrap();
-
-        //     // then bob creates one
-        //     ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-        //     if let Err(_) = transmutation.random_seed([2;48]) {
-        //         panic!("{:?}", "The test should pass");
-        //     }
-
-        //     let bob_asset = transmutation.registry_lookup(accounts.bob).unwrap();
-
-        //     ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.alice);
-        //     if let Err(_) = transmutation.try_new_swap(
-        //         accounts.bob,
-        //         deadline
-        //     ) {
-        //         panic!("{:?}", "The test should pass");
-        //     }
-        //     let expected_swap = Swap {
-        //         asset_id_one: alice_asset,
-        //         asset_id_two: bob_asset,
-        //         deadline,
-        //     };
-
-        //     let merkle_root = Transmutation::calculate_merkle_root(accounts.alice, accounts.bob).unwrap();
-        //     assert_eq!(transmutation.swaps.get(merkle_root).unwrap(), expected_swap);
-        //     assert_eq!(transmutation.swap_lookup(accounts.alice, accounts.bob).unwrap(), (merkle_root, expected_swap));
-        // }
-
-        // #[ink::test]
-        // fn test_can_trasmute() {
-        //     let accounts = 
-        //         ink_env::test::default_accounts::<ink_env::DefaultEnvironment>();
-        //     setup_ext_even_parity();
-        //     let mut transmutation = Transmutation::default();
-
-        //     let deadline = 1;
-            
-        //     if let Err(_) = transmutation.random_seed([5;48]) {
-        //         panic!("{:?}", "The test should pass");
-        //     }
-
-        //     // then bob creates one
-        //     ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-        //     if let Err(_) = transmutation.random_seed([2;48]) {
-        //         panic!("{:?}", "The test should pass");
-        //     }
-            
-        //     ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.alice);
-        //     if let Err(_) = transmutation.try_new_swap(
-        //         accounts.bob,
-        //         deadline
-        //     ) {
-        //         panic!("{:?}", "The test should pass");
-        //     }
-        //     // let expected_swap = Swap {
-        //     //     asset_id_one: alice_asset,
-        //     //     asset_id_two: bob_asset,
-        //     //     deadline,
-        //     // };
-
-        //     ink_env::test::advance_block::<ink_env::DefaultEnvironment>();
-        //     if let Err(_) = transmutation.transmute() {
-        //         panic!("{:?}", "The test should pass");
-        //     }
-
-        //     ink::env::test::set_caller::<ink::env::DefaultEnvironment>(accounts.bob);
-        //     if let Err(_) = transmutation.transmute() {
-        //         panic!("{:?}", "The test should pass");
-        //     }
-        //     // let merkle_root = Transmutation::calculate_merkle_root(accounts.alice, accounts.bob).unwrap();
-        //     // assert_eq!(transmutation.swaps.get(merkle_root).unwrap(), expected_swap);
-
-        // }
-
-        // fn setup_ext_even_parity() {
-        //     struct MockETFExtension;
-        //     impl ink_env::test::ChainExtension for MockETFExtension {
-        //         fn func_id(&self) -> u32 {
-        //             1101
-        //         }
-
-        //         fn call(&mut self, _input: &[u8], output: &mut Vec<u8>) -> u32 {
-        //             let ret = [0;48];
-        //             scale::Encode::encode_to(&ret, output);
-        //             0
-        //         }
-        //     }
-
-        //     ink_env::test::register_chain_extension(MockETFExtension);
-        // }
-    }
-
-
-    // /// This is how you'd write end-to-end (E2E) or integration tests for ink! contracts.
-    // ///
-    // /// When running these you need to make sure that you:
-    // /// - Compile the tests with the `e2e-tests` feature flag enabled (`--features e2e-tests`)
-    // /// - Are running a Substrate node which contains `pallet-contracts` in the background
-    // #[cfg(all(test, feature = "e2e-tests"))]
-    // mod e2e_tests {
-    //     /// Imports all the definitions from the outer scope so we can use them here.
-    //     use super::*;
-
-    //     /// A helper function used for calling contract messages.
-    //     use ink_e2e::build_message;
-
-    //     /// The End-to-End test `Result` type.
-    //     type E2EResult<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-
-    //     /// We test that we can upload and instantiate the contract using its default constructor.
-    //     #[ink_e2e::test]
-    //     async fn default_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
-    //         // Given
-    //         let constructor = TransmutationRef::default();
-
-    //         // When
-    //         let contract_account_id = client
-    //             .instantiate("transmutation", &ink_e2e::alice(), constructor, 0, None)
-    //             .await
-    //             .expect("instantiate failed")
-    //             .account_id;
-
-    //         // Then
-    //         let get = build_message::<TransmutationRef>(contract_account_id.clone())
-    //             .call(|transmutation| transmutation.get());
-    //         let get_result = client.call_dry_run(&ink_e2e::alice(), &get, 0, None).await;
-    //         assert!(matches!(get_result.return_value(), false));
-
-    //         Ok(())
-    //     }
-
-    //     /// We test that we can read and write a value from the on-chain contract contract.
-    //     #[ink_e2e::test]
-    //     async fn it_works(mut client: ink_e2e::Client<C, E>) -> E2EResult<()> {
-    //         // Given
-    //         let constructor = TransmutationRef::new(false);
-    //         let contract_account_id = client
-    //             .instantiate("transmutation", &ink_e2e::bob(), constructor, 0, None)
-    //             .await
-    //             .expect("instantiate failed")
-    //             .account_id;
-
-    //         let get = build_message::<TransmutationRef>(contract_account_id.clone())
-    //             .call(|transmutation| transmutation.get());
-    //         let get_result = client.call_dry_run(&ink_e2e::bob(), &get, 0, None).await;
-    //         assert!(matches!(get_result.return_value(), false));
-
-    //         // When
-    //         let flip = build_message::<TransmutationRef>(contract_account_id.clone())
-    //             .call(|transmutation| transmutation.flip());
-    //         let _flip_result = client
-    //             .call(&ink_e2e::bob(), flip, 0, None)
-    //             .await
-    //             .expect("flip failed");
-
-    //         // Then
-    //         let get = build_message::<TransmutationRef>(contract_account_id.clone())
-    //             .call(|transmutation| transmutation.get());
-    //         let get_result = client.call_dry_run(&ink_e2e::bob(), &get, 0, None).await;
-    //         assert!(matches!(get_result.return_value(), true));
-
-    //         Ok(())
-    //     }
-    // }
+   
 }
