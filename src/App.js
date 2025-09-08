@@ -7,7 +7,7 @@ export default function App(props) {
     // const [ready, set] = useState(false)
     const [showGame, setShowGame] = useState(false);
 
-    // const ctx = useContext(EtfContext);
+    // const ctx = useContext(IdnContext);
 
     // useEffect(() => {console.log(ctx)}, [ctx]);
 

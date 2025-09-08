@@ -10,30 +10,31 @@ import { createRoot } from "react-dom/client";
 import './App.css';
 import "./styles.css";
 
-import { Etf } from '@ideallabs/etf.js'
+// import { Etf } from '@ideallabs/etf.js'
 import { cryptoWaitReady } from '@polkadot/util-crypto'
 import { ContractPromise } from '@polkadot/api-contract';
-import abi from './resources/transmutation.json';
+import abi from './resources/tidebound.json';
 
 import App from "./App";
 import logo from './resources/logo.png';
 import WalletConnect from "./connect/connect.component";
-import { EtfContext } from "./EtfContext";
-import chainspec from './resources/etfTestSpecRaw.json';
+import { IdnContext } from "./IdnContext";
+// import chainspec from './resources/etfTestSpecRaw.json';
 import { Libp2p } from "./services/libp2p.service";
+import { ApiPromise, WsProvider } from "@polkadot/api";
 
 
 function Overlay() {
   const [ready, set] = useState(false)
   const [showConnect, setShowConnect] = useState(false);
 
+  const [api, setApi] = useState(null)
   const [etf, setEtf] = useState(null)
-  const [signer, setSigner] = useState(null);
+  const [signer, setSigner] = useState(null)
 
   const [contract, setContract] = useState(null);
   const [latestBlock, setLatestBlock] = useState(null)
   const [balance, setBalance] = useState(0);
-
   const [libp2p, setLibp2p] = useState(null);
 
   const CustomTypes = {
@@ -65,7 +66,7 @@ function Overlay() {
     console.log(`Node started with id ${node.peerId.toString()}`)
     setLibp2p(node);
     console.log('libp2p ready with peer id ' + node.peerId)
-    
+
     // // update topic peers
     setInterval(() => {
       console.log(node.getPeers().length)
@@ -75,15 +76,28 @@ function Overlay() {
   const handleIDNConnect = async () => {
     await cryptoWaitReady();
     let ws = process.env.REACT_APP_WS_URL;
-    // let ws = 'ws://127.0.0.1:9944';
-    let etf = new Etf(ws, false)
-    await etf.init(chainspec, CustomTypes)
-    setEtf(etf)
 
-    const contract = new ContractPromise(etf.api, abi, process.env.REACT_APP_CONTRACT_ADDRESS);
+    // TODO: init polkadotjs api
+
+    let wsProvider = new WsProvider(ws)
+    let api = await ApiPromise.create({ provider: wsProvider })
+    setApi(api)
+    // const pubkey = Uint8Array.from(
+    //   PUBKEY.match(/.{1,2}/g).map((byte) => parseInt(byte, 16))
+    // )
+    // let etf = new Etf(api, pubkey)
+    // await etf.build()
+    // setEtf(etf)
+
+    // let etf = new Etf(ws, false)
+    // await etf.init(chainspec, CustomTypes)
+    // setEtf(etf)
+
+    const contract = new ContractPromise(api, abi, process.env.REACT_APP_CONTRACT_ADDRESS);
+    console.log(process.env.REACT_APP_CONTRACT_ADDRESS)
     setContract(contract);
 
-    const _unsubscribe = await etf.api.rpc.chain.subscribeNewHeads((header) => {
+    const _unsubscribe = await api.rpc.chain.subscribeNewHeads((header) => {
       setLatestBlock(parseInt(header.number));
     });
   }
@@ -104,7 +118,7 @@ function Overlay() {
 
   return (
     <>
-      <EtfContext.Provider value={{ etf, signer, contract, balance, libp2p }} >
+      <IdnContext.Provider value={{ api, signer, contract, balance, libp2p }} >
 
         <App onDisconnect={handleDisconnect} />
 
@@ -130,11 +144,11 @@ function Overlay() {
 
             {/* Footer */}
             <div className="footer">
-              <p>© 2024 Ideal Labs. All Rights Reserved.</p>
+              <p>© 2025 Ideal Labs. All Rights Reserved.</p>
             </div>
           </div>
         </div>
-      </EtfContext.Provider>
+      </IdnContext.Provider>
     </>
   )
 }

@@ -4,15 +4,14 @@
 import { BN, BN_ONE } from "@polkadot/util";
 
 
-const MAX_CALL_WEIGHT2 = new BN(1_000_000_000_000).isub(BN_ONE);
-const MAX_CALL_WEIGHT = new BN(5_000_000_000_000).isub(BN_ONE);
-const PROOFSIZE = new BN(2_000_000_000);
 
-export async function createIsland(etf, signer, name, transmutationContract, callback) {
-    await transmutationContract.tx
-        .createIsland({
-            gasLimit: etf.createType('WeightV2', {
-                refTime: MAX_CALL_WEIGHT2,
+const MAX_CALL_WEIGHT = new BN(1_000_000_000_000).isub(BN_ONE);
+const PROOFSIZE = new BN(100_000);
+export async function roll(api, signer, name, contract, callback) {
+    await contract.tx
+        .roll({
+            gasLimit: api.createType('WeightV2', {
+                refTime: MAX_CALL_WEIGHT,
                 proofSize: PROOFSIZE,
               }),
               storageDepositLimit: null,
@@ -24,12 +23,12 @@ export async function createIsland(etf, signer, name, transmutationContract, cal
         });
 }
 
-export async function queryIslandRegistry(etf, signer, contract, who) {
+export async function queryIslandRegistry(api, signer, contract, who) {
     const { gasRequired, storageDeposit, result, output } =  
-        await contract.query.getIsland(signer.address, 
+        await contract.query.registryLookup(signer.address, 
             {
-                gasLimit: etf.createType('WeightV2', {
-                    refTime: MAX_CALL_WEIGHT2,
+                gasLimit: api.createType('WeightV2', {
+                    refTime: MAX_CALL_WEIGHT,
                     proofSize: PROOFSIZE,
                 }),
                 storageDepositLimit: null,
@@ -39,12 +38,12 @@ export async function queryIslandRegistry(etf, signer, contract, who) {
     return result.toHuman()
 }
 
-export async function queryPlayers(etf, signer, contract) {
+export async function queryPlayers(api, signer, contract) {
     const { gasRequired, storageDeposit, result, output } =  
         await contract.query.getPlayers(signer.address, 
             {
-                gasLimit: etf.createType('WeightV2', {
-                    refTime: MAX_CALL_WEIGHT2,
+                gasLimit: api.createType('WeightV2', {
+                    refTime: MAX_CALL_WEIGHT,
                     proofSize: PROOFSIZE,
                 }),
                 storageDepositLimit: null,
@@ -53,10 +52,10 @@ export async function queryPlayers(etf, signer, contract) {
     return result.toHuman()
 }
 
-// export async function tryNewSwap(etf, signer, transmutationContract, who, when, callback) {
+// export async function tryNewSwap(api, signer, transmutationContract, who, when, callback) {
 //     await transmutationContract.tx
 //         .tryNewSwap({
-//             gasLimit: etf.createType('WeightV2', {
+//             gasLimit: api.createType('WeightV2', {
 //                 refTime: MAX_CALL_WEIGHT2,
 //                 proofSize: PROOFSIZE,
 //             }),
@@ -69,10 +68,10 @@ export async function queryPlayers(etf, signer, contract) {
 //         });
 // }
 
-// export async function rejectSwap(etf, signer, transmutationContract, callback) {
+// export async function rejectSwap(api, signer, transmutationContract, callback) {
 //     await transmutationContract.tx
 //         .rejectSwap({
-//             gasLimit: etf.createType('WeightV2', {
+//             gasLimit: api.createType('WeightV2', {
 //                 refTime: MAX_CALL_WEIGHT2,
 //                 proofSize: PROOFSIZE,
 //             }),
@@ -85,10 +84,10 @@ export async function queryPlayers(etf, signer, contract) {
 //         });
 // }
 
-// export async function complete(etf, signer, contract, swapId, callback) {
+// export async function complete(api, signer, contract, swapId, callback) {
 //     await contract.tx
 //         .complete({
-//             gasLimit: etf.createType('WeightV2', {
+//             gasLimit: api.createType('WeightV2', {
 //                 refTime: MAX_CALL_WEIGHT2,
 //                 proofSize: PROOFSIZE,
 //             }),
@@ -101,10 +100,10 @@ export async function queryPlayers(etf, signer, contract) {
 //         });
 // }
 
-// export function transmute__call(etf, transmutationContract) {
+// export function transmute__call(api, transmutationContract) {
 //     return transmutationContract.tx
 //         .transmute({
-//             gasLimit: etf.createType('WeightV2', {
+//             gasLimit: api.createType('WeightV2', {
 //                 refTime: MAX_CALL_WEIGHT2,
 //                 proofSize: PROOFSIZE,
 //             }),
@@ -112,11 +111,11 @@ export async function queryPlayers(etf, signer, contract) {
 //         });
 // }
 
-// export async function queryWorldRegistry(etf, signer, transmutationContract, who) {
+// export async function queryWorldRegistry(api, signer, transmutationContract, who) {
 //     const { gasRequired, storageDeposit, result, output } =  
 //         await transmutationContract.query.registryLookup(signer.address, 
 //             {
-//                 gasLimit: etf.createType('WeightV2', {
+//                 gasLimit: api.createType('WeightV2', {
 //                     refTime: MAX_CALL_WEIGHT2,
 //                     proofSize: PROOFSIZE,
 //                 }),
@@ -127,11 +126,11 @@ export async function queryPlayers(etf, signer, contract) {
 //     return result.toHuman()
 // }
 
-// export async function queryClaimedAssets(etf, signer, transmutation) {
+// export async function queryClaimedAssets(api, signer, transmutation) {
 //     const { gasRequired, storageDeposit, result, output } =  
 //         await transmutation.query.getClaimedAssets(signer.address, 
 //             {
-//                 gasLimit: etf.createType('WeightV2', {
+//                 gasLimit: api.createType('WeightV2', {
 //                     refTime: MAX_CALL_WEIGHT2,
 //                     proofSize: PROOFSIZE,
 //                 }),
@@ -141,11 +140,11 @@ export async function queryPlayers(etf, signer, contract) {
 //     return output
 // }
 
-// export async function queryAssetOwner(etf, signer, transmutation, seed) {
+// export async function queryAssetOwner(api, signer, transmutation, seed) {
 //     const { gasRequired, storageDeposit, result, output } =  
 //         await transmutation.query.getOwner(signer.address, 
 //             {
-//                 gasLimit: etf.createType('WeightV2', {
+//                 gasLimit: api.createType('WeightV2', {
 //                     refTime: MAX_CALL_WEIGHT2,
 //                     proofSize: PROOFSIZE,
 //                 }),
@@ -155,11 +154,11 @@ export async function queryPlayers(etf, signer, contract) {
 //     return output
 // }
 
-// export async function getPendingSwap(etf, signer, transmutation) {
+// export async function getPendingSwap(api, signer, transmutation) {
 //     const { gasRequired, storageDeposit, result, output } =  
 //         await transmutation.query.getPendingSwap(signer.address, 
 //             {
-//                 gasLimit: etf.createType('WeightV2', {
+//                 gasLimit: api.createType('WeightV2', {
 //                     refTime: MAX_CALL_WEIGHT2,
 //                     proofSize: PROOFSIZE,
 //                 }),
@@ -169,11 +168,11 @@ export async function queryPlayers(etf, signer, contract) {
 //     return output
 // }
 
-// export async function getAssetSwapHash(etf, signer, transmutation, assetId) {
+// export async function getAssetSwapHash(api, signer, transmutation, assetId) {
 //     const { gasRequired, storageDeposit, result, output } =  
 //     await transmutation.query.getAssetSwap(signer.address, 
 //         {
-//             gasLimit: etf.createType('WeightV2', {
+//             gasLimit: api.createType('WeightV2', {
 //                 refTime: MAX_CALL_WEIGHT2,
 //                 proofSize: PROOFSIZE,
 //             }),

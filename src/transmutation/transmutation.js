@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { EtfContext } from '../../EtfContext';
+import { IdnContext } from '../../IdnContext';
 import './transmutation.css';
 
 import { complete, getAssetSwapHash, getPendingSwap, queryAssetOwner, queryClaimedAssets, rejectSwap, transmute__call, tryNewSwap } from '../../services/transmutation.service';
@@ -8,7 +8,7 @@ import { hexToString, hexToU8a } from '@polkadot/util';
 
 function Transmutation() {
 
-    const { etf, signer, contract, latestBlock } = useContext(EtfContext);
+    const { etf, signer, contract, latestBlock } = useContext(IdnContext);
 
     const [activeSwap, setActiveSwap] = useState('');
     const [swapStatus, setSwapStatus] = useState('');

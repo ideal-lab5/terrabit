@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useContext, useCallback } from 'react';
 import './home.component.css';
 import Modal from 'react-modal';
-import { createIsland, queryIslandRegistry, queryPlayers } from '../../services/contract.service';
+import { queryIslandRegistry, queryPlayers, roll } from '../../services/contract.service';
 import { hexToU8a, hexToString, u8aToString } from '@polkadot/util';
-import { EtfContext } from '../../EtfContext';
+import { IdnContext } from '../../IdnContext';
 import appState from '../../state/appState';
 import SHA3 from 'sha3';
 import seedrandom from 'seedrandom';
@@ -46,7 +46,7 @@ function Home(props) {
     const setGenerationSeed = appState((s) => s.setSeed);
     const setGeneral = appState((s) => s.setGeneral);
 
-    const { etf, signer, contract, balance } = useContext(EtfContext);
+    const { api, signer, contract, balance } = useContext(IdnContext);
 
     useEffect(() => {
 
@@ -61,19 +61,18 @@ function Home(props) {
     }, [signer]);
 
     const queryPlayersJs = async () => {
-        let players = await queryPlayers(etf, signer, contract);
+        let players = await queryPlayers(api, signer, contract);
         if (players.Ok) {
-            const playersu8a = etf.createType('Bytes', players.Ok.data).toU8a().slice(3);
-            // assert(playersU8a % 32 === 0)
+            const playersu8a = api.createType('Bytes', players.Ok.data).toU8a().slice(4);
+
             let numPlayers = playersu8a.length / 32;
-            console.log(playersu8a)
             let otherIslands = []
 
             for (let i = 0; i < numPlayers; i++) {
-                let playerAccountId = etf.createType('AccountId', playersu8a.slice(i * 32, (i + 1) * 32))
-                let islandData = await queryIslandRegistry(etf, signer, contract, playerAccountId);
+                let playerAccountId = api.createType('AccountId', playersu8a.slice(i * 32, (i + 1) * 32))
+                let islandData = await queryIslandRegistry(api, signer, contract, playerAccountId);
                 const rawIslandData = islandData.Ok.data;
-                const islandU8a = etf.createType('Bytes', rawIslandData).toU8a();
+                const islandU8a = api.createType('Bytes', rawIslandData).toU8a();
                 let islandName = u8aToString(islandU8a.slice(4, 35));
                 let islandSeed = islandU8a.slice(36);
                 let island = { 'name': islandName, 'seed': islandSeed };
@@ -93,14 +92,14 @@ function Home(props) {
     }
 
     const queryIsland = async (who) => {
-        let islandData = await queryIslandRegistry(etf, signer, contract, who);
+        let islandData = await queryIslandRegistry(api, signer, contract, who);
         if (!islandData.Ok) {
             return null;
         }
         // Assuming islandData is in the form { Ok: { flags: [], data: "0x..." } }
         const rawIslandData = islandData.Ok.data;
         // Convert the raw data into a u8a (if it's in hex form)
-        const islandU8a = etf.createType('Bytes', rawIslandData).toU8a();
+        const islandU8a = api.createType('Bytes', rawIslandData).toU8a();
 
         let islandName = u8aToString(islandU8a.slice(4, 35));
         let islandSeed = islandU8a.slice(36);
@@ -138,7 +137,7 @@ function Home(props) {
         try {
             // format name to be exactly 32 bytes
             let formattedName = name.padEnd(32, ' ');
-            await createIsland(etf, signer, formattedName, contract, async (result) => {
+            await roll(api, signer, formattedName, contract, async result => {
                 if (result.status.isInBlock) {
                     let island = await queryIsland(signer.address);
                     setCurrentIsland(island)

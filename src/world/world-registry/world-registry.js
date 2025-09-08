@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { EtfContext } from '../../../EtfContext';
+import { IdnContext } from '../../../IdnContext';
 import './world-registry.css';
 
 import {queryAssetOwner, queryClaimedAssets} from '../../../services/transmutation.service';
@@ -11,7 +11,7 @@ function WorldRegistry() {
 
    const navigate = useNavigate();
 
-   const { etf, signer, contract } = useContext(EtfContext);
+   const { etf, signer, contract } = useContext(IdnContext);
    
    const [knownAssetIds, setKnownAssetIds] = useState([]);
 

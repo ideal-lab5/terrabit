@@ -1,13 +1,12 @@
 #![cfg_attr(not(feature = "std"), no_std, no_main)]
 
-use idl_contract_extension::idn_ext::IDNEnvironment;
-
+use idn_contract_lib::ext::IDNEnvironment;
 #[ink::contract(env = IDNEnvironment)]
 mod tidebound {
 
     use crate::IDNEnvironment;
 
-    use perlin::PerlinNoiseRef;
+    // use perlin::PerlinNoiseRef;
     use ink::ToAccountId;
     use ink::prelude::vec::Vec;
     use ink::storage::Mapping;
@@ -26,10 +25,10 @@ mod tidebound {
         derive(scale_info::TypeInfo, ink::storage::traits::StorageLayout)
     )]
     pub struct WorldConfig {
-        /// the world contract address
-        pub address: AccountId,
         /// the world name
         pub name: OpaqueData,
+        /// the random seed used to create the world
+        pub seed: OpaqueData,
     }
 
     #[derive(PartialEq, Debug, scale::Decode, scale::Encode)]
@@ -44,10 +43,10 @@ mod tidebound {
 
     #[ink(storage)]
     pub struct Tidebound {
+        /// A list of all players who have registered
+        registered_players: Vec<AccountId>,
         /// registry of all players' worlds
         registry: Mapping<AccountId, WorldConfig>,
-        /// The perlin noise contract code hash
-        perlin_noise_contract_code_hash: Hash,
     }
 
 
@@ -55,18 +54,21 @@ mod tidebound {
 
         /// build a new "overworld" game contract
         #[ink(constructor, payable)]
-        pub fn new(perlin_noise_contract_code_hash: Hash) -> Self {
+        pub fn new(
+            // perlin_noise_contract_code_hash: Hash
+        ) -> Self {
             Self {
+                registered_players: Vec::new(),
                 registry: Mapping::new(),
-                perlin_noise_contract_code_hash,
+                // perlin_noise_contract_code_hash,
 
             }
         }
 
-        // #[ink(constructor, payable)]
-        // pub fn default() -> Self {
-        //     Self::new()
-        // }
+        #[ink(constructor, payable)]
+        pub fn default() -> Self {
+            Self::new()
+        }
 
         /// register in the overworld and initialize a game world with a random seed
         /// must be called in order for the game to be "playable"
@@ -77,107 +79,44 @@ mod tidebound {
         ///     seed: [u8; 32] = Sha256(accountId || name) XOR rand;
         ///
         #[ink(message)]
-        pub fn register(
+        pub fn roll(
             &mut self,
             name: Vec<u8>,
         ) -> Result<(), Error> {
             let caller = self.env().caller();
 
+            if !self.registered_players.contains(&caller) {
+                self.registered_players.push(caller);
+            }
+
             let mut acct_id_bytes: &[u8] = caller.as_ref();
-            let concat = [
-                acct_id_bytes.to_vec(), 
-                name.clone()
-            ].concat();
-            let mut seed: [u8;32] = self.get_seed();
-            let roll = self.roll(seed, &concat);
-            // TODO: idk, arbitarily picked 10
-            let scale = 10;
-            // deploy Perlin contract
-            let noise_contract = PerlinNoiseRef::new(
-                caller,
-                roll,
-                scale,
-            )
-                .endowment(0)
-                .code_hash(self.perlin_noise_contract_code_hash)
-                .salt_bytes(seed)
-                .instantiate();
-            let account_id = noise_contract.to_account_id();
+            // generate random seed
+            let mut seed: [u8;32] = self.get_seed(acct_id_bytes.try_into().unwrap());
+            // add to storage
+            self.registry.insert(caller, &WorldConfig { 
+                name,
+                seed: seed.to_vec(),
+            });
             // TODO: emit event
             Ok(())
         }
 
-        /// roll the dice, get 32 bytes of fresh randomness
-        /// outputs: roll := round_randomness XOR sha256(concat)
-        ///
-        /// * `concat`: Any length input
-        ///
-        fn roll(&self, mut seed: [u8;32], concat: &[u8]) -> u32 {
-            let hash = self.env().hash_bytes::<Sha2x256>(&concat);
-            hash.clone().iter().enumerate().for_each(|(i, bit)| {
-                seed[i] = seed[i] ^ bit;
-            });
-            let mut result: u32 = 0;
-            for byte in hash {
-                result = result.wrapping_add(byte as u32);
-            }
-            result
+        // Fetch randomness from IDN
+        fn get_seed(&self, ctx: &[u8;32]) -> [u8; 32] {
+            self.env().extension().fetch_random(*ctx)
+                .unwrap_or([0u8;32])
         }
 
-         // Fetch 32 bytes of randomness from the IDN and convert it to a 32-byte array
-         fn get_seed(&self) -> [u8; 32] {
-            self.env().extension().random() // Fetch randomness from IDN
+        #[ink(message)]
+        pub fn get_players(&self) -> Vec<AccountId> {
+            self.registered_players.clone()
         }
 
-
-        // /// join the game (open to public)
-        // #[ink(message)]
-        // pub fn join(&mut self) -> Result<(), Error> {
-        //     let caller = self.env().caller();
-
-        //     let mut updatedPlayers = self.players.clone();
-        //     // TODO: enforce upper bound on number of players based on the size of the island
-        //     // max_players = (size^2 + 1)/(size^2 - 1)? or just make it freely configurable?
-        //     //  floor(sqrt(size)): 1-4 => 1, 5-8 => 2, 9-15 => 3, 16-24 => 4, 25-35 => 5, 36-48 => 6, ..., 100- 120 => 10
-        //     // floor((size^2 - 1)/(size^2 + 1)):  1 => 0, 2 => 0
-        //     if !updatedPlayers.contains(&caller) {
-        //         updatedPlayers.push(caller);
-        //         self.players = updatedPlayers;
-        //         return Ok(());
-        //     }
-
-        //     Err(Error::PlayerAlreadyRegistered)
-        // }
-
-        // /// a player takes their next turn
-        // /// 1. generates fresh randomness
-        // /// 2. uses that randomness to do something to the player state...
-        // #[ink(message)]
-        // pub fn move(
-        //     &mut self,
-        // ) -> Result<(), Error> {
-        //     let caller = self.env().caller();
-        //     // 1. check that it is the caller's turn
-        //     if let Some(next) = self.next_player {
-        //         if next == caller {
-        //             // roll = rand xor hash(caller)
-        //             let caller_bytes: &[u8] = caller.as_ref();
-        //             let rand = self.roll(&[caller_bytes.to_vec()].concat());
-
-        //             // then something happens here
-        //             // but this is where it gets difficult
-        //             // because the hex grid and noise function do not actually exist within this contract...
-        //             // so maybe I need to use circom? 
-        //             // somehow generate the noise offchain, encode it as a static [x,y,z] vec and initialize the contract with it
-        //             // 
-
-        //             return Ok(());
-        //         }
-        //         return Err(Error::WaitYourTurn);
-        //     }
-
-        //     Err(Error::NoPlayers)
-        // }
+        
+        #[ink(message)]
+        pub fn registry_lookup(&self, who: AccountId) -> Option<WorldConfig> {
+            self.registry.get(who)
+        }
 
         // #[ink(message)]
         // pub fn destroy_island(&mut self) -> Result<(), Error> {
@@ -198,22 +137,13 @@ mod tidebound {
         //     self.asset_status.get(asset_id)
         // }
 
+
+
         // #[ink(message)]
         // pub fn get_owner(&self, asset_id: OpaqueAssetId) -> Option<AccountId> {
         //     self.island_registry.get(asset_id)
         // }
 
-        // #[ink(message)]
-        // pub fn registry_lookup(&self, who: AccountId) -> Option<OpaqueAssetId> {
-        //     if let Some(found_seed) = self.claimed_assets.iter().find(|seed| {
-        //         self.island_registry
-        //             .get(seed)
-        //             .map_or(false, |registry_entry| registry_entry.eq(&who))
-        //     }) {
-        //         return Some(found_seed.clone());
-        //     }
-        //     None
-        // }
         
         // #[ink(message)]
         // pub fn get_claimed_assets(&self) -> Vec<OpaqueAssetId> {

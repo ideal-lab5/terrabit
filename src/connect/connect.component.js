@@ -1,7 +1,7 @@
 /* global BigInt */
 import { web3Enable, web3Accounts, web3FromAddress } from "@polkadot/extension-dapp";
 import { useContext, useEffect, useState } from 'react';
-import { EtfContext } from "../EtfContext";
+import { IdnContext } from "../IdnContext";
 // import Modal from "react-mnod";
 
 import './connect.component.css';
@@ -40,14 +40,14 @@ function WalletConnect(props) {
     const [availableAccounts, setAvailableAccounts] = useState([]);
     // const [balance, setBalance] = useState(0);
 
-    const { etf } = useContext(EtfContext);
+    const { api } = useContext(IdnContext);
 
     useEffect(() => {
         handleConnect()
     }, []);
 
     async function connect() {
-        await web3Enable('Etf|Transmutation');
+        await web3Enable('TerraBit');
         const allAccounts = await web3Accounts();
         setAvailableAccounts(allAccounts);
     }
@@ -58,7 +58,7 @@ function WalletConnect(props) {
     }
 
     const checkBalance = async (address) => {
-        let bal = await etf.api.query.system.account(address);
+        let bal = await api.query.system.account(address);
         let bigBalance = BigInt(parseInt(bal.data.free))
         props.setBalance(Number(bigBalance) || 0);
     }
@@ -70,7 +70,7 @@ function WalletConnect(props) {
         setSignerAddress(address);
         setIsConnected(true);
         setShowWalletSelection(false);
-        etf.api.setSigner(injector.signer);
+        api.setSigner(injector.signer);
         checkBalance(address)
     }
 

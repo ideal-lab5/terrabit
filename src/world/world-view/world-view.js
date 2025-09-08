@@ -1,5 +1,5 @@
 import React, { Suspense, useContext, useEffect, useMemo, useState, useRef } from 'react';
-import { EtfContext } from '../../../EtfContext';
+import { IdnContext } from '../../../IdnContext';
 import './world-view.css';
 
 import { queryWorldRegistry } from '../../../services/transmutation.service';
@@ -144,7 +144,7 @@ function WorldView() {
    const setGeneral = appState((s) => s.setGeneral);
    const setGeneration = appState((s) => s.setGeneration);
 
-   const { etf, signer, contract } = useContext(EtfContext);
+   const { etf, signer, contract } = useContext(IdnContext);
    const [seed, setSeed] = useState('');
    const [account, setAccount] = useState('');
    const [showInfo, setShowInfo] = useState(false);

@@ -54,7 +54,7 @@ export default create((set) => ({
         state.colors[key].color = color;
       })
     ),
-
+  // for testing purposes
   generation: {
     Seed: Math.random(),
     Height: 1,

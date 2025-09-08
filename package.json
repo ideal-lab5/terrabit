@@ -18,6 +18,7 @@
     "@libp2p/webtransport": "^4.1.8",
     "@orbitdb/core": "^2.2.0",
     "@pmndrs/branding": "0.0.8",
+    "@polkadot/api": "^16.4.6",
     "@polkadot/api-contract": "^12.4.2",
     "@polkadot/util": "^13.0.2",
     "@polkadot/util-crypto": "^13.0.2",

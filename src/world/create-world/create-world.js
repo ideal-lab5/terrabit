@@ -1,10 +1,10 @@
 import React, { useContext, useState } from 'react';
-import { EtfContext } from '../../../EtfContext';
+import { IdnContext } from '../../../IdnContext';
 import './create-world.css';
 import {randomSeed} from '../../../services/transmutation.service';
 
 function CreateWorld(props) {
-   const { etf, signer, contract } = useContext(EtfContext);
+   const { etf, signer, contract } = useContext(IdnContext);
 
    // const [name, setName] = useState('');
    const [nonce, setNonce] = useState('');

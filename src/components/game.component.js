@@ -5,7 +5,7 @@ import { Ground } from "../Ground";
 import { Player } from "../Player";
 import { useState, useEffect, useContext } from "react";
 import appState from "../state/appState";
-import { EtfContext } from "../EtfContext";
+import { IdnContext } from "../IdnContext";
 import { presetsObj } from "@react-three/drei/helpers/environment-assets";
 import { Cube } from "../Cube";
 import create from "zustand";
@@ -77,7 +77,7 @@ export default function Game(props) {
 
     const seed = appState((s) => s.generation.Seed);
 
-    const { signer, libp2p } = useContext(EtfContext);
+    const { signer, libp2p } = useContext(IdnContext);
 
 
     useEffect(() => {
@@ -157,7 +157,7 @@ export default function Game(props) {
                     <ambientLight intensity={0.3} />
                     <pointLight castShadow intensity={0.8} position={[100, 100, 100]} />
                     <Physics gravity={[0, 0, 0]}>
-                        <Ground setTerrainRef={setTerrainRef} />
+                        <Ground setTerrainRef={setTerrainRef} radius={10} />
                         <Player terrainRef={terrainRef} onPositionChange={updatePlayerPosition} />
                         <Players />
                         {/* <Cube position={[1,10,1]} /> */}
