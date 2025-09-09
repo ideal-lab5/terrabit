@@ -10,8 +10,9 @@ ink = { version = "5.1.1", default-features = false }
 scale = { package = "parity-scale-codec", version = "3", default-features = false, features = ["derive"] }
 scale-info = { version = "2.6", default-features = false, features = ["derive"], optional = true }
 sha3 = { version = "0.10.8", default-features = false }
-#rs_merkle = { version = "1.4.1", default-features = false }
-idn-contract-lib = { git = "https://github.com/ideal-lab5/idn-sdk.git", default-features = false }
+rs_merkle = { version = "1.4.1", default-features = false }
+idn-contract-lib = { git = "https://github.com/ideal-lab5/idn-sdk.git", branch = "feat/round-aware-chain-ext",  default-features = false }
+pallet-randomness-beacon = { git = "https://github.com/ideal-lab5/idn-sdk.git", branch = "feat/round-aware-chain-ext",  default-features = false }
 # noise = { version = "0.9", default-features = false }
 # perlin = { path = "../perlin", default-features = false, features = ["ink-as-dependency"] }
 

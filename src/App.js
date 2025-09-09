@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Home from "./components/home/home.component";
-import Game from "./components/game.component";
+import Game from "./components/game/game.component";
 
 export default function App(props) {
 

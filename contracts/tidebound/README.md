@@ -9,3 +9,5 @@ Build the contract with cargo contract
 ``` shell
 cargo contract build --release
 ```
+
+## Unruggable Asset Swaps

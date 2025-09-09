@@ -114,7 +114,7 @@ export function Player({ lerp = THREE.MathUtils.lerp, terrainRef, onPositionChan
         colliders={true}
         mass={1}
         type="dynamic"
-        position={[0, 2.5, 0]} // Ensure this is above the initial terrain height
+        position={[0, 20, 0]} // Ensure this is above the initial terrain height
         enabledRotations={[false, false, false]}
       >
         <CapsuleCollider args={[0.5, 0.5]} />
